@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TXT to PDF Local App</title>
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --border: #dfe7f2;
+        --text: #1d2736;
+        --muted: #5d6b7a;
+        --accent: #1f6feb;
+        --accent-dark: #124da8;
+        --shadow: 0 12px 28px rgba(31, 111, 235, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 32px auto;
+        padding: 20px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .file-input-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: #f8fbff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 12px;
+      }
+
+      input[type="file"] {
+        max-width: 280px;
+        color: var(--muted);
+      }
+
+      button {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s ease;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      .primary:hover {
+        background: var(--accent-dark);
+      }
+
+      .secondary {
+        background: #edf3ff;
+        color: var(--accent-dark);
+      }
+
+      .secondary:hover {
+        background: #dfeaff;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        padding: 20px;
+      }
+
+      .box {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #fbfcfe;
+        overflow: hidden;
+      }
+
+      .box-header {
+        padding: 12px 14px;
+        font-weight: 700;
+        border-bottom: 1px solid var(--border);
+        background: #f2f7ff;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 520px;
+        border: none;
+        resize: vertical;
+        font: 15px/1.6 monospace;
+        padding: 16px;
+        background: #ffffff;
+        color: var(--text);
+      }
+
+      .preview-area {
+        min-height: 520px;
+        padding: 18px;
+        background: white;
+        overflow: auto;
+      }
+
+      .page {
+        max-width: 760px;
+        margin: 0 auto;
+        min-height: 1000px;
+        background: white;
+        padding: 48px 56px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.03);
+      }
+
+      .line {
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.7;
+        margin: 0;
+        font-size: 15px;
+      }
+
+      .empty {
+        color: var(--muted);
+        font-style: italic;
+      }
+
+      @media (max-width: 800px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media print {
+        body {
+          background: white;
+        }
+
+        .toolbar,
+        .workspace > .box:first-child,
+        .file-input-wrap,
+        button,
+        .box-header {
+          display: none !important;
+        }
+
+        .container {
+          max-width: 100%;
+          margin: 0;
+          padding: 0;
+        }
+
+        .panel {
+          box-shadow: none;
+          border: none;
+        }
+
+        .workspace {
+          display: block;
+          padding: 0;
+        }
+
+        .preview-area {
+          min-height: auto;
+          padding: 0;
+        }
+
+        .page {
+          max-width: 100%;
+          min-height: auto;
+          margin: 0;
+          padding: 0;
+          border: none;
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="panel">
+        <div class="toolbar">
+          <label class="file-input-wrap">
+            <span>Load TXT</span>
+            <input id="fileInput" type="file" accept=".txt,text/plain" />
+          </label>
+          <button id="printBtn" class="primary" type="button">Print / Save as PDF</button>
+          <button id="clearBtn" class="secondary" type="button">Clear</button>
+        </div>
+
+        <div class="workspace">
+          <div class="box">
+            <div class="box-header">Text input</div>
+            <textarea id="textInput" placeholder="Paste text here or upload a .txt file...">This is a sample text.
+
+You can load a TXT file and then print this page as PDF.
+
+This app works fully on your browser with no internet connection required.</textarea>
+          </div>
+
+          <div class="box">
+            <div class="box-header">Preview</div>
+            <div id="preview" class="preview-area"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const textInput = document.getElementById('textInput');
+      const preview = document.getElementById('preview');
+      const fileInput = document.getElementById('fileInput');
+      const printBtn = document.getElementById('printBtn');
+      const clearBtn = document.getElementById('clearBtn');
+
+      function escapeHtml(value) {
+        return value
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function renderPreview() {
+        const text = textInput.value || '';
+
+        if (!text.trim()) {
+          preview.innerHTML = '<div class="page empty">No text to preview yet.</div>';
+          return;
+        }
+
+        const lines = text.replace(/\r\n/g, '\n').split('\n');
+        const htmlLines = lines.map((line) => {
+          const safeLine = escapeHtml(line || ' ');
+          return `<div class="line">${safeLine}</div>`;
+        }).join('');
+
+        preview.innerHTML = `<div class="page">${htmlLines}</div>`;
+      }
+
+      textInput.addEventListener('input', renderPreview);
+
+      fileInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+          const text = await file.text();
+          textInput.value = text;
+          renderPreview();
+        } catch (error) {
+          alert('Could not read this file. Please select a valid TXT file.');
+        }
+      });
+
+      printBtn.addEventListener('click', () => {
+        const text = textInput.value.trim();
+        if (!text) {
+          alert('Please add some text before saving as PDF.');
+          return;
+        }
+
+        renderPreview();
+        window.print();
+      });
+
+      clearBtn.addEventListener('click', () => {
+        textInput.value = '';
+        fileInput.value = '';
+        renderPreview();
+      });
+
+      renderPreview();
+    </script>
+  </body>
+</html>
